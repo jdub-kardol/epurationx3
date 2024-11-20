@@ -6,7 +6,7 @@ $version = "1.5"
 # Par JDUB - Société KARDOL
 
 # Utilisation :
-# Si le script est lancé sans paramètres ou avec des paramètres inconnus, il ne fait que vérifier sa mise à jour et supprimer ses fichiers journaux plus anciens que 15 jours.
+# Si le script est lancé sans paramètres ou avec des paramètres inconnus, il ne fait que vérifier sa mise à jour et supprimer ses propres fichiers journaux plus anciens que 15 jours.
 # Si le script est lancé avec ces paramètres :
 # - Paramètre "DEBUG" : ne supprime aucun fichier mais les liste dans un journal à la date + _Epuration_X3_Debug.log. Ce paramètre prend le pas sur LOG.
 # - Paramètre "LOG" : liste les fichiers supprimés dans un journal à la date + _Epuration_X3_Detail.log
@@ -14,11 +14,16 @@ $version = "1.5"
 # - Paramètre "TRT" : A adjoindre au paramètre "DEFAULT" pour prise en compte. Suppression des fichiers plus anciens que 15 jours dans "runtime\tmp". Les dossiers "TRA et TMP" de chaque dossiers et sous-dossiers X3 sont ignorés.
 # - Paramètre "FOLDER" : suppression des fichiers de répertoires précis avec compression ou non et indication du nombre de jours à garder. Les informations sont à placer dans le fichier "Epuration_X3.conf"
 # - Paramètre "EMAIL" : Envoi d'un email en cas d'erreur(s) dans le traitement du script. Les informations sont à placer dans le fichier "Epuration_X3.conf"
+# - Paramètre "ERROR" : à adjoindre au paramètre "EMAIL" pour prise en compte. L'envoi d'email ne s'opère qu'en cas d'erreur.
+#
+# Les paramètres "EMAIL" et "FOLDER" nécessitent le fichier "Epuration_X3.conf" qui va contenir les informations en rapport avec les tâches à effectuer.
 #
 # Exemple pour un serveur TRT / APP : .\Epuration_X3.ps1 DEFAULT
 # Exemple pour un serveur uniquement TRT : .\Epuration_X3.ps1 DEFAULT TRT
 # Exemple pour un serveur avec des répertoires précis à épurer : .\Epuration_X3.ps1 FOLDER
 # Exemple pour un serveur TRT / APP avec des répertoires précis à épurer : .\Epuration_X3.ps1 DEFAULT FOLDER
+# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et envoi du fichier journal par email : .\Epuration_X3.ps1 DEFAULT FOLDER EMAIL
+# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et envoi du fichier journal par email uniquement en cas d'erreurs : .\Epuration_X3.ps1 DEFAULT FOLDER EMAIL ERROR
 #
 #endregion
 ########################################################## Définition des variables ############################################
@@ -28,7 +33,7 @@ $logFileTime = $(Get-Date -Format 'yyyyMMdd-HHmmss')
 $logFile = "$ScriptPath\" + "$logFileTime" + "_Epuration_X3.log"
 $folderconf = "$ScriptPath\Epuration_X3.conf"
 $conflines=@()
-$parametres = "default debug trt folder email log"
+$parametres = "default debug trt folder email error log"
 $defaultExclude = @("*.zip", "serveur.tra", "accentry.tra", "espion.tra")
 $global:NbTotalFichiers = 0
 $global:debug = "NON"
@@ -84,11 +89,12 @@ Else {
 #region Vérification MAJ
 Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Vérification d'une mise à jour"
 try {
-    $web = Invoke-WebRequest -Uri "https://galerie.dubois.link/EpurationX3/version.html" -UseBasicParsing
-    Add-Content -Path $logFile -Value "  - Version du script : $version / Version disponible en MAJ : $($web.Content)"
-    If ($web.Content -gt $version) {
+    $web = Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/version.html" -UseBasicParsing
+    $webversion = $web.Content.Replace("`n", "").Replace("`r", "")
+    Add-Content -Path $logFile -Value "  - Version du script : $version / Version disponible en MAJ : $webversion"
+    If ($webversion -gt $version) {
         Add-Content -Path $logFile -Value "  - Lancement du téléchargement de l'exécutable de mise à jour"
-        Invoke-WebRequest -Uri "https://galerie.dubois.link/EpurationX3/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
+        Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
         & "$ScriptPath\Epuration_X3_Update.ps1"
         Add-Content -Path $logFile -Value "  - Lancement de l'exécutable de mise à jour et fin du script"
         Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin du script - Raison : mise à jour"
@@ -275,8 +281,13 @@ If ($args -contains "EMAIL") {
         $smtpparameters["Credential"] = $credential
         }
     try {
-        Send-MailMessage @smtpparameters -ErrorAction Stop
-        Add-Content -Path $logFile -Value "  - Email envoyé à $($parameterline[4])"
+        If ($args -contains "ERROR" -and $global:NbErreurs -eq 0) {
+            Add-Content -Path $logFile -Value "  - Pas d'email envoyé à $($parameterline[4]) car paramètre ERROR passé et pas d'erreurs"
+            }
+        Else {
+            Send-MailMessage @smtpparameters -ErrorAction Stop
+            Add-Content -Path $logFile -Value "  - Email envoyé à $($parameterline[4])"
+        }
         }
     catch {
         Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Envoi du message impossible !!!!!!!!!!!!!!!!!!!!!!!!!!!!!`r`nRaison : $($_.Exception.Message)"
