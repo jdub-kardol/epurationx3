@@ -42,6 +42,15 @@ $global:NbErreurs = 0
 #endregion
 ########################################################## Création du fichier journal ############################################
 Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Lancement du script Epuration X3 v$version"
+########################################################## Vérification que le script est lancé en administrateur #############################
+#region verif admin
+If (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Add-Content -Path $logFile -Value "`r`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Le script n'est pas lancé en administrateur - sortie du script !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    $global:NbErreurs +=1
+    Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin du script - Nombre d'erreurs : $global:NbErreurs"
+    Exit
+    }
+#endregion
 ########################################################## Récupération des paramètres passé au script #############################
 #region récupération paramètres
 Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début de la récupération des paramètres passés"
