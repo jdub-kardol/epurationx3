@@ -131,7 +131,7 @@ param (
     [string]$compress
     )
 $jours = (Get-Date).AddDays(-$daytokeep)
-$fichiers = (Get-ChildItem –Path $path -Recurse -File -Filter $filter -Exclude $exclude | Where-Object {($_.LastWriteTime -lt $jours)}).FullName
+$fichiers = (Get-ChildItem -Path $path -Recurse -File -Filter $filter -Exclude $exclude | Where-Object {($_.LastWriteTime -lt $jours)}).FullName
 Add-Content -Path $logFile -Value "  - Epuration lancée avec paramètres : chemin = $path | Nbre de jours = $daytokeep | Filtres = $filter | Exclusions = $exclude | Compression = $compress"
 $nbfichiers = $fichiers.count
 $global:NbTotalFichiers += $fichiers.count
