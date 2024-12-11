@@ -111,7 +111,7 @@ try {
     Add-Content -Path $logFile -Value "  - Version du script : $version / Version disponible en MAJ : $webversion"
     If ($webversion -gt $version) {
         Add-Content -Path $logFile -Value "  - Lancement du téléchargement de l'exécutable de mise à jour"
-        #Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
+        Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
         $env:EpurationX3Params = $args
         & "$ScriptPath\Epuration_X3_Update.ps1"
         Add-Content -Path $logFile -Value "  - Lancement de l'exécutable de mise à jour et fin du script"
