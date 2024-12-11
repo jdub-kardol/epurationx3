@@ -15,7 +15,7 @@ $logFile = "$ScriptPath\" + "$logFileTime" + "_Epuration_Update.log"
 Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début du script de mise à jour"
 try {
     Add-Content -Path $logFile -Value "  - Lancement du téléchargement de Epuration_X3.ps1"
-    Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3.ps1" -OutFile "$ScriptPath\Epuration_X3_MAJ.ps1"
+    Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3.ps1" -OutFile "$ScriptPath\Epuration_X3.ps1"
     #& "$ScriptPath\Epuration_X3_Update.ps1"
     Add-Content -Path $logFile -Value "  - Lancement de l'exécutable de mise à jour et fin du script"
     Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin du script - Raison : mise à jour"
