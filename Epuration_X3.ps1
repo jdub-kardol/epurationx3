@@ -1,29 +1,34 @@
 ########################################################## Commentaires ############################################
 #region commentaires
 # Script d'épuration des dossiers pour serveurs Sage X3
-$version = "1.5"
-# Dernière modification : 21/10/2024
+$version = "1.6"
+# Dernière modification : 21/11/2024
 # Par JDUB - Société KARDOL
 
 # Utilisation :
-# Si le script est lancé sans paramètres ou avec des paramètres inconnus, il ne fait que vérifier sa mise à jour et supprimer ses propres fichiers journaux plus anciens que 15 jours.
-# Si le script est lancé avec ces paramètres :
+# Si le script est lancé sans paramètres ou avec des paramètres inconnus, il opère les actions suivantes :
+# - vérifier sa mise à jour
+# - suppression de ses propres fichiers journaux plus anciens que 15 jours
+# - suppression des fichiers plus anciens que 7 jours dans "runtime\tmp", les dossiers "TRA et TMP" de chaque dossiers et sous-dossiers X3. Les fichiers supprimés dans les répertoires "TRA" sont zippés. Ces archives zippées sont gardées une année puis supprimées.
+# 
+# Si le script est lancé avec ces paramètres (pas d'ordre à respecter dans leur déclaration) :
 # - Paramètre "DEBUG" : ne supprime aucun fichier mais les liste dans un journal à la date + _Epuration_X3_Debug.log. Ce paramètre prend le pas sur LOG.
 # - Paramètre "LOG" : liste les fichiers supprimés dans un journal à la date + _Epuration_X3_Detail.log
-# - Paramètre "DEFAULT" : suppression des fichiers plus anciens que 15 jours dans "runtime\tmp", les dossiers "TRA et TMP" de chaque dossiers et sous-dossiers X3. Les fichiers supprimés dans les répertoires "TRA" sont zippés. Ces archives zippées sont gardées une année puis supprimées.
-# - Paramètre "TRT" : A adjoindre au paramètre "DEFAULT" pour prise en compte. Suppression des fichiers plus anciens que 15 jours dans "runtime\tmp". Les dossiers "TRA et TMP" de chaque dossiers et sous-dossiers X3 sont ignorés.
+# - Paramètre "NOX3TRT" : ne gère pas et donc ne supprime pas les fichiers dans le dossier "runtime\tmp".
+# - Paramètre "NOX3APP" : ne gère pas et donc ne supprime pas les fichiers dans les dossiers "TRA et TMP" de chaque dossiers et sous-dossiers X3.
 # - Paramètre "FOLDER" : suppression des fichiers de répertoires précis avec compression ou non et indication du nombre de jours à garder. Les informations sont à placer dans le fichier "Epuration_X3.conf"
 # - Paramètre "EMAIL" : Envoi d'un email en cas d'erreur(s) dans le traitement du script. Les informations sont à placer dans le fichier "Epuration_X3.conf"
 # - Paramètre "ERROR" : à adjoindre au paramètre "EMAIL" pour prise en compte. L'envoi d'email ne s'opère qu'en cas d'erreur.
-#
+
 # Les paramètres "EMAIL" et "FOLDER" nécessitent le fichier "Epuration_X3.conf" qui va contenir les informations en rapport avec les tâches à effectuer.
-#
-# Exemple pour un serveur TRT / APP : .\Epuration_X3.ps1 DEFAULT
-# Exemple pour un serveur uniquement TRT : .\Epuration_X3.ps1 DEFAULT TRT
-# Exemple pour un serveur avec des répertoires précis à épurer : .\Epuration_X3.ps1 FOLDER
-# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer : .\Epuration_X3.ps1 DEFAULT FOLDER
-# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et envoi du fichier journal par email : .\Epuration_X3.ps1 DEFAULT FOLDER EMAIL
-# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et envoi du fichier journal par email uniquement en cas d'erreurs : .\Epuration_X3.ps1 DEFAULT FOLDER EMAIL ERROR
+
+# Exemple pour un serveur TRT / APP : .\Epuration_X3.ps1
+# Exemple pour un serveur TRT / APP sans suppression mais avec journalisation des fichiers traités : .\Epuration_X3.ps1 DEBUG
+# Exemple pour un serveur uniquement TRT : .\Epuration_X3.ps1 NOX3APP 
+# Exemple pour un serveur sans X3 mais avec des répertoires précis à épurer : .\Epuration_X3.ps1 NOX3APP NOX3TRT FOLDER
+# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et une journalisation de ces fichiers : .\Epuration_X3.ps1 FOLDER LOG
+# Exemple pour un serveur TRT / APP et envoi du fichier journal par email : .\Epuration_X3.ps1 FOLDER EMAIL
+# Exemple pour un serveur TRT / APP avec des répertoires précis à épurer et envoi du fichier journal par email uniquement en cas d'erreurs : .\Epuration_X3.ps1 FOLDER EMAIL ERROR
 #
 #endregion
 ########################################################## Définition des variables ############################################
@@ -33,7 +38,7 @@ $logFileTime = $(Get-Date -Format 'yyyyMMdd-HHmmss')
 $logFile = "$ScriptPath\" + "$logFileTime" + "_Epuration_X3.log"
 $folderconf = "$ScriptPath\Epuration_X3.conf"
 $conflines=@()
-$parametres = "default debug trt folder email error log"
+$parametres = "nox3app nox3trt debug folder email error log"
 $defaultExclude = @("*.zip", "serveur.tra", "accentry.tra", "espion.tra")
 $global:NbTotalFichiers = 0
 $global:debug = "NON"
@@ -42,6 +47,7 @@ $global:NbErreurs = 0
 #endregion
 ########################################################## Création du fichier journal ############################################
 Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Lancement du script Epuration X3 v$version"
+try{
 ########################################################## Vérification que le script est lancé en administrateur #############################
 #region verif admin
 If (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -79,16 +85,18 @@ If ($args -contains "debug") {
 #endregion
 ########################################################## Lecture du fichier de configuration ###################################
 #region Lecture du fichier de configuration
-If (-Not (Test-Path $folderconf)) {
-    Add-Content -Path $logFile -Value "`r`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de fichier conf - Pas de traitement des paramètres FOLDER et EMAIL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    $global:NbErreurs +=1
-    $args = $args -replace "folder", ""
-    $args = $args -replace "email", ""
-    }
-Else {
-    Get-Content -Path $folderconf | ForEach-Object {
-        If ($_.StartsWith("SMTP:") -or $_.StartsWith("FOLD:")) {
-            $conflines += $_
+If (($args -contains "EMAIL") -or ($args -contains "FOLDER")) {
+    If (-Not (Test-Path $folderconf)) {
+        Add-Content -Path $logFile -Value "`r`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de fichier conf - Pas de traitement des paramètres FOLDER et EMAIL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        $global:NbErreurs +=1
+        $args = $args -replace "folder", ""
+        $args = $args -replace "email", ""
+        }
+    Else {
+        Get-Content -Path $folderconf | ForEach-Object {
+            If ($_.StartsWith("SMTP:") -or $_.StartsWith("FOLD:")) {
+                $conflines += $_
+            }
         }
     }
 }
@@ -103,7 +111,8 @@ try {
     Add-Content -Path $logFile -Value "  - Version du script : $version / Version disponible en MAJ : $webversion"
     If ($webversion -gt $version) {
         Add-Content -Path $logFile -Value "  - Lancement du téléchargement de l'exécutable de mise à jour"
-        Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
+        #Invoke-WebRequest -Uri "https://github.com/jdub-kardol/epurationx3/raw/refs/heads/main/Epuration_X3_Update.ps1" -OutFile "$ScriptPath\Epuration_X3_Update.ps1"
+        $env:EpurationX3Params = $args
         & "$ScriptPath\Epuration_X3_Update.ps1"
         Add-Content -Path $logFile -Value "  - Lancement de l'exécutable de mise à jour et fin du script"
         Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin du script - Raison : mise à jour"
@@ -113,10 +122,10 @@ Else {
     Add-Content -Path $logFile -Value "  - Pas de mise à jour"
     }
     }
-    catch {
-        Add-Content -Path $logFile -Value "`r`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Impossible de vérifier ou télécharger la mise à jour !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        Add-Content -Path $logFile -Value "  - Raison : $($_.Exception.Message)"
-        $global:NbErreurs +=1
+catch {
+    Add-Content -Path $logFile -Value "`r`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Impossible de vérifier ou télécharger la mise à jour !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    Add-Content -Path $logFile -Value "  - Raison : $($_.Exception.Message)"
+    $global:NbErreurs +=1
     }
 #endregion
 ########################################################## Definition des fonctions ############################################
@@ -131,7 +140,7 @@ param (
     [string]$compress
     )
 $jours = (Get-Date).AddDays(-$daytokeep)
-$fichiers = (Get-ChildItem -Path $path -Recurse -File -Filter $filter -Exclude $exclude | Where-Object {($_.LastWriteTime -lt $jours)}).FullName
+$fichiers = (Get-ChildItem –Path $path -Recurse -File -Filter $filter -Exclude $exclude | Where-Object {($_.LastWriteTime -lt $jours)}).FullName
 Add-Content -Path $logFile -Value "  - Epuration lancée avec paramètres : chemin = $path | Nbre de jours = $daytokeep | Filtres = $filter | Exclusions = $exclude | Compression = $compress"
 $nbfichiers = $fichiers.count
 $global:NbTotalFichiers += $fichiers.count
@@ -157,68 +166,6 @@ If ($null -ne $fichiers) {
         }
     }
 } #Fin Epuration
-
-Function Default
-{
-param (
-    [string]$trt
-    )
-# Récupération du chemin du runtime X3
-$service = Get-CimInstance -ClassName Win32_Service | Where-Object { $_.PathName -like "*runtime\bin*" }
-If ($service) {
-    $runtime = ($($service.PathName) -split " ")[0]
-    $runtime = $runtime.Substring(0, $runtime.length - 15)
-    Add-Content -Path $logFile -Value "  - Chemin du runtime = $runtime"
-    }
-Else {
-    Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de service runtime trouvé - Arrêt de traitement du paramètre DEFAULT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    $global:NbErreurs +=1
-    Return
-    }
-
-# Epuration du runtime\tmp
-Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration runtime\tmp" 
-$runtimetmp = $runtime + "tmp"
-Epuration 15 $runtimetmp * $defaultExclude "NON"
-Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration runtime\tmp" 
-
-If ($trt -eq "OUI") {
-    Add-Content -Path $logFile -Value "`r`n*********************** Paramètre passé TRT - Pas de traitement des dossiers applicatifs X3 TRA et TMP *******************"
-    Return
-}
-# Récupération du chemin des dossiers X3
-$BDRKey = Get-ChildItem -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "Sage .* Application Component" }
-If (-not [string]::IsNullOrEmpty($BDRKey)) {
-    $BDRKey = $BDRKey.Name -replace "HKEY_LOCAL_MACHINE", "HKLM:"
-    $X3APPPATH = Get-ItemProperty -Path $BDRKey
-    $X3APPPATH = $X3APPPATH.DisplayIcon
-    $x3folder = $X3APPPATH.replace("\Uninstaller\UninstallerIcon.ico", "")
-    }
-Else {
-    $x3folder = "z:\terterse"
-    }
-If (-Not (Test-Path $x3folder)) {
-    Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin des dossiers X3 trouvé - Arrêt de traitement du paramètre DEFAULT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    $global:NbErreurs +=1
-    Return
-    }
-Add-Content -Path $logFile -Value "  - Chemin des dossiers X3 = $x3folder"
-
-# Récupération et épuration de la liste des sous-dossiers X3 TMP à traiter
-Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration sous-dossiers X3 répertoires TMP"
-Get-ChildItem -Path $x3folder -Directory -Recurse -Include TMP | ForEach-Object {
-    Epuration 15 $_.FullName * $defaultExclude NON
-    }
-Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration sous-dossiers X3 répertoires TMP"
-
-# Récupération et épuration de la liste des sous-dossiers X3 TRA à traiter
-Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration sous-dossiers X3 répertoires TRA"
-Get-ChildItem -Path $x3folder -Directory -Recurse -Include TRA | ForEach-Object {
-    Epuration 15 $_.FullName * $defaultExclude "OUI"
-    Epuration 360 $_.FullName "*.zip" "" "NON"
-    }
-Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration sous-dossiers X3 répertoires TRA"
-} #Fin function Default
 #endregion
 ########################################################## Epuration des journaux plus anciens que 15 jours ############################################
 #region Epuration journaux
@@ -229,18 +176,79 @@ Epuration 15 $ScriptPath "*Epuration_X3*" $exclude "NON"
 # Suppression des archives ZIP > 1 an
 #Epuration 360 $ScriptPath "*.zip" "" "NON"
 #endregion
-########################################################## Traitement du paramètre DEFAULT ############################################
-#region DEFAULT
-If ($args -contains "DEFAULT") {
-    Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Traitement du paramètre DEFAULT"
-    If ($args -contains "TRT") {
-        $trt = "OUI"
+########################################################## Epuration du dossier runtime\tmp ############################################
+#region Epuration du dossier runtime\tmp
+If ($args -contains "NOX3TRT") {
+    Add-Content -Path $logFile -Value "`r`n*********************** Paramètre passé NOX3TRT - Pas d'épuration du dossier runtime\tmp *******************"
     }
+Else {
+    Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration runtime\tmp" 
+    # Récupération du chemin du runtime X3
+    $service = Get-CimInstance -ClassName Win32_Service | Where-Object { $_.PathName -like "*runtime\bin*" }
+    If ($service) {
+        $runtime = ($($service.PathName) -split " ")[0]
+        $runtime = $runtime.Substring(0, $runtime.length - 15) + "tmp"
+        # Epuration du runtime\tmp
+        If (Test-Path $runtime) {
+            Add-Content -Path $logFile -Value "  - Chemin du runtime = $runtime"
+            Epuration 7 $runtimetmp * $defaultExclude "NON"
+            }
+        Else {
+            Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin runtime trouvé - Arrêt de l'épuration du runtime\tmp !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            Add-Content -Path $logFile -Value "!!! Si ce serveur ne comporte pas de Runtime X3, pensez à passer le paramètre NOX3TRT pour ne pas avoir cette erreur !!!"
+            $global:NbErreurs +=1
+            }
+        }
     Else {
-        $trt= "NON"
+        Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de service runtime trouvé - Arrêt de l'épuration du runtime\tmp !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        Add-Content -Path $logFile -Value "!!! Si ce serveur ne comporte pas de Runtime X3, pensez à passer le paramètre NOX3TRT pour ne pas avoir cette erreur !!!"
+        $global:NbErreurs +=1
+        }
+    Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration runtime\tmp"
     }
-    Default($trt)
-}
+#endregion
+########################################################## Epuration sous-dossiers X3 répertoires TRA/TMP ############################################
+#region Epuration sous-dossiers X3 répertoires TRA/TMP
+If ($args -contains "NOX3APP") {
+    Add-Content -Path $logFile -Value "`r`n*********************** Paramètre passé NOX3APP - Pas d'épuration des sous-dossiers X3 répertoires TRA/TMP *******************"
+    }
+Else {
+    # Récupération du chemin des dossiers X3
+    $BDRKey = Get-ChildItem -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "Sage .* Application Component" }
+    If (-not [string]::IsNullOrEmpty($BDRKey)) {
+        $BDRKey = $BDRKey.Name -replace "HKEY_LOCAL_MACHINE", "HKLM:"
+        $X3APPPATH = Get-ItemProperty -Path $BDRKey
+        $X3APPPATH = $X3APPPATH.DisplayIcon
+        $x3folder = $X3APPPATH.replace("\Uninstaller\UninstallerIcon.ico", "")
+        If (Test-Path $x3folder) {
+            # Récupération et épuration de la liste des sous-dossiers X3 TMP à traiter
+            Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration sous-dossiers X3 répertoires TMP"
+            Add-Content -Path $logFile -Value "  - Chemin des dossiers X3 = $x3folder"
+            Get-ChildItem -Path $x3folder -Directory -Recurse -Include TMP | ForEach-Object {
+                Epuration 7 $_.FullName * $defaultExclude NON
+                }
+            Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration sous-dossiers X3 répertoires TMP"
+
+            # Récupération et épuration de la liste des sous-dossiers X3 TRA à traiter
+            Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début épuration sous-dossiers X3 répertoires TRA"
+            Add-Content -Path $logFile -Value "  - Chemin des dossiers X3 = $x3folder"
+            Get-ChildItem -Path $x3folder -Directory -Recurse -Include TRA | ForEach-Object {
+                Epuration 7 $_.FullName * $defaultExclude "OUI"
+                Epuration 360 $_.FullName "*.zip" "" "NON"
+                }
+            Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration sous-dossiers X3 répertoires TRA"
+            }
+        Else {
+            Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin des dossiers X3 trouvé - Arrêt épuration sous-dossiers X3 répertoires TRA/TMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            Add-Content -Path $logFile -Value "!!! Si ce serveur ne comporte pas le composant d'application X3, pensez à passer le paramètre NOX3APP pour ne pas avoir cette erreur !!!"
+            $global:NbErreurs +=1
+            }
+        }
+    Else {
+        Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin des dossiers X3 trouvé - Arrêt épuration sous-dossiers X3 répertoires TRA/TMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        $global:NbErreurs +=1
+        }
+    }
 #endregion
 ########################################################## Traitement du paramètre FOLDER ############################################
 #region FOLDER
@@ -260,7 +268,7 @@ If ($args -contains "FOLDER") {
             }
         }
     Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin traitement du paramètre FOLDER" 
-}
+    }
 #endregion
 ########################################################## Fin des épurations ############################################
 Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin des épurations - Nombre d'erreurs : $global:NbErreurs - Nombre total de fichiers traités : $global:NbTotalFichiers"
@@ -296,6 +304,7 @@ If ($args -contains "EMAIL") {
         Else {
             Send-MailMessage @smtpparameters -ErrorAction Stop
             Add-Content -Path $logFile -Value "  - Email envoyé à $($parameterline[4])"
+            Remove-Item $logfiletemp -ErrorAction SilentlyContinue
         }
         }
     catch {
@@ -306,3 +315,7 @@ If ($args -contains "EMAIL") {
 #endregion
 ########################################################## Fin du script ############################################
 Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin du script - Nombre d'erreurs : $global:NbErreurs"
+}
+catch {
+Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR GENERALE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!`r`nRaison : $($_.Exception.Message)"
+}
