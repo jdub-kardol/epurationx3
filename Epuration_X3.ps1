@@ -1,7 +1,7 @@
 ﻿########################################################## Commentaires ############################################
 #region commentaires
 # Script d'épuration des dossiers pour serveurs Sage X3
-$version = "1.0"
+$version = "1.1"
 # Dernière modification : 20/01/2025
 # Par JDUB - Société KARDOL
 
