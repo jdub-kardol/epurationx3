@@ -2,7 +2,7 @@
 #region commentaires
 # Script de mise à  jour du script Epuration_X3.ps1"
 $version = "1.0"
-# Dernière modification : 21/11/2024
+# Dernière modification : 21/01/2025
 # Par JDUB - Société KARDOL
 #endregion
 ########################################################## Définition des variables ############################################
