@@ -1,7 +1,7 @@
 ﻿########################################################## Commentaires ############################################
 #region commentaires
 # Script d'épuration des dossiers pour serveurs Sage X3
-$version = "1.1"
+$version = "1.2"
 # Dernière modification : 20/01/2025
 # Par JDUB - Société KARDOL
 
@@ -71,8 +71,6 @@ If ([string]::IsNullOrEmpty($SystemDrive) -or (-Not (Test-Path $SystemDrive))) {
 #endregion
 ########################################################## Récupération des paramètres passé au script #############################
 #region récupération paramètres
-#Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Début de la récupération des paramètres passés"
-
 If ($args.count -eq 0) {
     Add-Content -Path $logFile -Value "  - Pas de paramètres passés"
     }
@@ -112,7 +110,6 @@ If (($args -contains "EMAIL") -or ($args -contains "FOLDER")) {
         }
     }
 }
-#$conflines
 #endregion
 ########################################################## Vérification d'une mise à jour #############################
 #region Vérification MAJ
@@ -198,9 +195,6 @@ If ($null -ne $fichiers) {
 Add-Content -Path $logFile -Value "`r`n$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Suppression des fichiers journaux plus anciens que 15 jours"
 $exclude = @("*.zip", "*.conf", "*.ps1")
 Epuration 15 $ScriptPath "*Epuration_X3*" $exclude "NON"
-
-# Suppression des archives ZIP > 1 an
-#Epuration 360 $ScriptPath "*.zip" "" "NON"
 #endregion
 ########################################################## Epuration du dossier runtime\tmp ############################################
 #region Epuration du dossier runtime\tmp
