@@ -1,7 +1,7 @@
 ﻿########################################################## Commentaires ############################################
 #region commentaires
 # Script d'épuration des dossiers pour serveurs Sage X3
-$version = "1.2"
+$version = "1.21"
 # Dernière modification : 20/01/2025
 # Par JDUB - Société KARDOL
 
@@ -268,13 +268,13 @@ Else {
             Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - Fin épuration sous-dossiers X3 répertoires TRA"
             }
         Else {
-            Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin des dossiers X3 trouvé - Arrêt épuration sous-dossiers X3 répertoires TRA/TMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            Add-Content -Path $logFile -Value "!!! Si ce serveur ne comporte pas le composant d'application X3, pensez à passer le paramètre NOX3APP pour ne pas avoir cette erreur !!!"
+            Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Chemin des dossiers X3 trouvé mais incorrect - Arrêt épuration sous-dossiers X3 répertoires TRA/TMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             $global:NbErreurs +=1
             }
         }
     Else {
         Add-Content -Path $logFile -Value "!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ERREUR - Pas de chemin des dossiers X3 trouvé - Arrêt épuration sous-dossiers X3 répertoires TRA/TMP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        Add-Content -Path $logFile -Value "!!! Si ce serveur ne comporte pas le composant d'application X3, pensez à passer le paramètre NOX3APP pour ne pas avoir cette erreur !!!"
         $global:NbErreurs +=1
         }
     }
